@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boston 311 Complaints Over Time</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        #chart {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .bar {
+            fill: #2196F3;
+            transition: fill 0.3s ease;
+        }
+        .bar:hover {
+            fill: #1976D2;
+        }
+        .axis text {
+            font-size: 13px;
+            fill: #555;
+        }
+        .axis-label {
+            font-size: 15px;
+            font-weight: bold;
+            fill: #333;
+        }
+        .axis line, .axis path {
+            stroke: #ccc;
+        }
+        h1 {
+            text-align: center;
+            color: #2196F3;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .filters {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .filters label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .filters select {
+            padding: 5px;
+            font-size: 14px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Boston 311 Complaints Over Time in 2025</h1>
+    <p>This bar chart shows the number of 311 complaints per month in Boston for 2025.</p>
+    <div class="filters">
+        <label for="reasonSelect">Filter by Complaint Type: </label>
+        <select id="reasonSelect"></select>
+        <label for="deptSelect">Filter by Department: </label>
+        <select id="deptSelect"></select>
+    </div>
+    <div id="chart"></div>
+    <div id="tooltip"></div>
+
+    <script>
+        const margin = {top: 20, right: 30, bottom: 60, left: 60};
+        const width = 800 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        let data;
+        const parseDate = d3.timeParse("%Y-%m-%d %H:%M:%S");
+
+        function updateChart(filteredData) {
+            // Group by month
+            const monthCounts = {};
+            filteredData.forEach(d => {
+                const date = parseDate(d.open_dt);
+                if (date) {
+                    const month = d3.timeFormat("%Y-%m")(date);
+                    monthCounts[month] = (monthCounts[month] || 0) + 1;
+                }
+            });
+
+            const monthlyData = Object.entries(monthCounts).map(([month, count]) => ({
+                month: month,
+                count: count
+            })).sort((a, b) => a.month.localeCompare(b.month));
+
+            // Clear previous chart
+            d3.select("#chart").selectAll("*").remove();
+
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Scales
+            const x = d3.scaleBand()
+                .domain(monthlyData.map(d => d.month))
+                .range([0, width])
+                .padding(0.1);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(monthlyData, d => d.count)])
+                .range([height, 0]);
+
+            // Bars
+            svg.selectAll(".bar")
+                .data(monthlyData)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", d => x(d.month))
+                .attr("y", d => y(d.count))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.count))
+                .on("mouseover", function(event, d) {
+                    d3.select("#tooltip")
+                        .style("opacity", 1)
+                        .html(`Month: ${d.month}<br>Complaints: ${d.count}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mousemove", function(event) {
+                    d3.select("#tooltip")
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select("#tooltip").style("opacity", 0);
+                });
+
+            // X-axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .style("text-anchor", "middle");
+
+            // Y-axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Axis labels
+            svg.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .text("Month");
+
+            svg.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", -margin.left + 20)
+                .text("Number of Complaints");
+        }
+
+        d3.csv("boston_311_2025_raw.csv").then(function(loadedData) {
+            data = loadedData;
+
+            // Get unique reasons and departments
+            const reasons = [...new Set(data.map(d => d.reason))].sort();
+            const depts = [...new Set(data.map(d => d.department))].sort();
+
+            const reasonSelect = d3.select("#reasonSelect");
+            reasonSelect.append("option").attr("value", "all").text("All");
+            reasons.forEach(reason => {
+                reasonSelect.append("option").attr("value", reason).text(reason);
+            });
+
+            const deptSelect = d3.select("#deptSelect");
+            deptSelect.append("option").attr("value", "all").text("All");
+            depts.forEach(dept => {
+                deptSelect.append("option").attr("value", dept).text(dept);
+            });
+
+            // Initial chart
+            updateChart(data);
+
+            // On change
+            reasonSelect.on("change", updateFilters);
+            deptSelect.on("change", updateFilters);
+
+            function updateFilters() {
+                const selectedReason = reasonSelect.node().value;
+                const selectedDept = deptSelect.node().value;
+                let filtered = data;
+                if (selectedReason !== "all") {
+                    filtered = filtered.filter(d => d.reason === selectedReason);
+                }
+                if (selectedDept !== "all") {
+                    filtered = filtered.filter(d => d.department === selectedDept);
+                }
+                updateChart(filtered);
+            }
+        });
+    </script>
+</body>
+</html></content>
+<parameter name="filePath">/Users/junyuwang/development/dataviz-with-chatgpt-Junyu0707-1/dashboard.html

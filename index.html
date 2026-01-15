@@ -1,1 +1,157 @@
-<!-- Your HTML goes here -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top 10 Reasons for Boston 311 Calls</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        #chart {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .bar {
+            fill: #2196F3;
+            transition: fill 0.3s ease;
+        }
+        .bar:hover {
+            fill: #1976D2;
+        }
+        .axis text {
+            font-size: 13px;
+            fill: #555;
+        }
+        .axis-label {
+            font-size: 15px;
+            font-weight: bold;
+            fill: #333;
+        }
+        .axis line, .axis path {
+            stroke: #ccc;
+        }
+        h1 {
+            text-align: center;
+            color: #2196F3;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Top 10 Reasons for Boston 311 Calls in 2025</h1>
+    <p>This horizontal bar chart shows the top 10 reasons for 311 calls in Boston for the year 2025, sorted from largest to smallest number of calls.</p>
+    <button id="toggleBtn" style="display: block; margin: 10px auto; padding: 10px 20px; background-color: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">Show All Reasons</button>
+    <div id="chart"></div>
+
+    <footer style="text-align: center; margin-top: 20px; font-size: 12px; color: #666; border-top: 1px solid #ccc; padding-top: 10px;">
+        <p><strong>Data Source:</strong> Boston Open Data Portal - 311 Service Requests (https://data.boston.gov/dataset/311-service-requests)</p>
+        <p><strong>Chart Authorship:</strong> Created by Junyu Wang with assistance from GitHub Copilot and D3.js</p>
+    </footer>
+
+    <script>
+        let showAll = false;
+
+        function drawChart(data) {
+            // Sort by Count descending
+            data.sort((a, b) => b.Count - a.Count);
+
+            const displayData = showAll ? data : data.slice(0, 10);
+
+            // Truncate long reason names
+            displayData.forEach(d => {
+                if (d.reason.length > 15) {
+                    d.reason = d.reason.substring(0, 15) + "...";
+                }
+            });
+
+            const margin = {top: 20, right: 30, bottom: 60, left: 150};
+            const width = 800 - margin.left - margin.right;
+            const height = displayData.length * 30 + margin.top + margin.bottom;
+
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Scales
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(displayData, d => d.Count)])
+                .range([0, width]);
+
+            const y = d3.scaleBand()
+                .domain(displayData.map(d => d.reason))
+                .range([0, height])
+                .padding(0.1);
+
+            // Bars
+            svg.selectAll(".bar")
+                .data(displayData)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", 0)
+                .attr("y", d => y(d.reason))
+                .attr("width", d => x(d.Count))
+                .attr("height", y.bandwidth());
+
+            // X-axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .style("text-anchor", "middle");
+
+            // Y-axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Axis labels
+            svg.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .text("Number of Calls");
+
+            svg.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", -margin.left + 20)
+                .text("Reason");
+        }
+
+        d3.csv("boston_311_2025_by_reason.csv").then(function(data) {
+            data.forEach(d => {
+                d.Count = +d.Count;
+            });
+
+            drawChart(data);
+
+            d3.select("#toggleBtn").on("click", function() {
+                showAll = !showAll;
+                d3.select("#chart").selectAll("*").remove();
+                drawChart(data);
+                d3.select("#toggleBtn").text(showAll ? "Show Top 10" : "Show All Reasons");
+            });
+        });
+    </script>
+</body>
+</html>
