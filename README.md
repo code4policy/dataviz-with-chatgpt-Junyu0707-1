@@ -80,3 +80,13 @@ Use your knowledge of the vocabulary of HTML, CSS and JS to prompt ChatGPT. Your
 
 What worked? What didn't? Review your classmates' conversations with ChatGPT in Slack. Fill out an AI reflection form about your experience today.
 
+## Data
+
+The raw dataset is too large to commit to GitHub.
+
+1. Download the raw data:
+   - (paste the original data link here)
+2. Save it as `boston_311_2025_raw.csv` in the project root (or `data/`).
+3. Run:
+   ```bash
+   python3 pivot.py
